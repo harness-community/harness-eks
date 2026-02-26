@@ -1,0 +1,7 @@
+name = "my-test-cluster"
+
+eks-version = "1.32"
+
+tags = {
+    Environment = "test"
+}
