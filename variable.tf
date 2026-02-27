@@ -12,7 +12,7 @@ variable "eks-version" {
 
 variable "ami-type" {
   type        = string
-  default     = "AL2_x86_64"
+  default     = "AL2023_ARM_64_STANDARD"
   description = "AMI type to use"
 }
 

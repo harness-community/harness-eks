@@ -8,13 +8,21 @@ resource "harness_platform_delegatetoken" "eks" {
   }
 }
 
+resource "kubernetes_namespace_v1" "harness-delegate-ng" {
+  metadata {
+    name = "harness-delegate-ng"
+  }
+
+  depends_on = [module.eks]
+}
+
 resource "kubernetes_manifest" "otel-collector" {
   manifest = yamldecode(templatefile("templates/otel-cloudwatch.yaml.tmpl", {
     AWS_REGION    = data.aws_region.current.region
     K8S_NAMESPACE = "harness-delegate-ng"
   }))
 
-  depends_on = [module.eks]
+  depends_on = [kubernetes_namespace_v1.harness-delegate-ng]
 }
 
 module "delegate" {

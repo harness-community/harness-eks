@@ -57,7 +57,7 @@ module "eks" {
 
       ami_type = var.ami-type
 
-      instance_types = ["t3.xlarge"]
+      instance_types = ["t4g.xlarge"]
 
       min_size     = 1
       max_size     = 1
