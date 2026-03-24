@@ -18,7 +18,7 @@ this will need to be done in two parts, saving the helm install for the delegate
 
 this can be done with opentofu's -exclude option:
 ```
-tofu apply -exclude="module.delegate.helm_release.delegate"
+tofu apply -exclude="kubernetes_namespace_v1.harness-delegate-ng"
 ```
 
 then a full apply can be done:
@@ -161,3 +161,78 @@ No modules.
 | eks\_cluster\_node\_role\_arn | n/a |
 | harness\_ccm\_token | n/a |
 | harness\_cluster\_orchestrator\_id | n/a |
+## Requirements
+
+| Name | Version |
+|------|---------|
+| aws | ~> 6.0 |
+| harness | ~> 0.0 |
+| helm | ~> 2.17 |
+
+## Providers
+
+| Name | Version |
+|------|---------|
+| aws | 6.34.0 |
+| harness | 0.41.4 |
+| helm | 2.17.0 |
+| kubernetes | 3.0.1 |
+| random | 3.8.1 |
+
+## Modules
+
+| Name | Source | Version |
+|------|--------|---------|
+| cluster-orchestrator | git::https://github.com/harness-community/terraform-aws-harness-ccm-cluster-orchestrator.git | tm/pod-identity |
+| delegate | harness/harness-delegate/kubernetes | 0.2.3 |
+| eks | terraform-aws-modules/eks/aws | = 21.8.0 |
+| fck-nat | RaJiska/fck-nat/aws | n/a |
+| vpc | terraform-aws-modules/vpc/aws | ~> 6.0 |
+
+## Resources
+
+| Name | Type |
+|------|------|
+| [aws_eks_pod_identity_association.delegate](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/eks_pod_identity_association) | resource |
+| [aws_iam_role.delegate](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_role) | resource |
+| [aws_iam_role_policy.delegate](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_role_policy) | resource |
+| [harness_cluster_orchestrator_config.orchestrator](https://registry.terraform.io/providers/harness/harness/latest/docs/resources/cluster_orchestrator_config) | resource |
+| [harness_platform_connector_kubernetes.eks](https://registry.terraform.io/providers/harness/harness/latest/docs/resources/platform_connector_kubernetes) | resource |
+| [harness_platform_connector_kubernetes_cloud_cost.eks](https://registry.terraform.io/providers/harness/harness/latest/docs/resources/platform_connector_kubernetes_cloud_cost) | resource |
+| [harness_platform_delegatetoken.eks](https://registry.terraform.io/providers/harness/harness/latest/docs/resources/platform_delegatetoken) | resource |
+| [helm_release.orchestrator](https://registry.terraform.io/providers/hashicorp/helm/latest/docs/resources/release) | resource |
+| [kubernetes_manifest.otel-collector](https://registry.terraform.io/providers/hashicorp/kubernetes/latest/docs/resources/manifest) | resource |
+| [kubernetes_namespace_v1.harness-delegate-ng](https://registry.terraform.io/providers/hashicorp/kubernetes/latest/docs/resources/namespace_v1) | resource |
+| [random_pet.name](https://registry.terraform.io/providers/hashicorp/random/latest/docs/resources/pet) | resource |
+| [aws_caller_identity.current](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/caller_identity) | data source |
+| [aws_region.current](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/region) | data source |
+| [harness_platform_current_account.current](https://registry.terraform.io/providers/harness/harness/latest/docs/data-sources/platform_current_account) | data source |
+
+## Inputs
+
+| Name | Description | Type | Default | Required |
+|------|-------------|------|---------|:--------:|
+| ami-type | AMI type to use | `string` | `"AL2023_ARM_64_STANDARD"` | no |
+| eks-version | EKS version to use | `string` | `"1.32"` | no |
+| manager\_endpoint | Manager endpoint for the delegate | `string` | `"https://app.harness.io/gratis"` | no |
+| name | Name prefix for the cluster | `string` | `null` | no |
+| orchestrator\_tag | Tag for the orchestrator | `string` | `"alpha-0.8.0"` | no |
+| tags | Tags to apply to the cluster nodes | `map(string)` | `{}` | no |
+
+## Outputs
+
+| Name | Description |
+|------|-------------|
+| ccm\_k8s\_connector\_id | CCM Kubernetes Connector ID |
+| cluster\_endpoint | Cluster Endpoint |
+| cluster\_id | Cluster ID |
+| eks\_cluster\_amis | n/a |
+| eks\_cluster\_controller\_role\_arn | n/a |
+| eks\_cluster\_default\_instance\_profile | n/a |
+| eks\_cluster\_node\_role\_arn | n/a |
+| harness\_ccm\_token | n/a |
+| harness\_cluster\_orchestrator\_id | n/a |
+| name | Name |
+| private\_subnets | Private Subnets |
+| public\_subnets | Public Subnets |
+| vpc\_id | VPC ID |

@@ -39,6 +39,7 @@ module "delegate" {
   replicas         = 1
   upgrader_enabled = true
 
+  # add additional tags, tolerations, and custom containers (OTEL)
   values = <<EOF
     tags: "orchestrator,aws,eks"
     tolerations:
@@ -46,6 +47,9 @@ module "delegate" {
       operator: "Equal"
       value: "dedicated"
       effect: "NoSchedule"
+    custom_envs:
+    - name: BLOCK_SHELL_TASK
+      value: "true"
     custom_containers:
       - name: otel-collector
         image: otel/opentelemetry-collector-contrib:0.96.0
