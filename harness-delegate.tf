@@ -35,7 +35,7 @@ module "delegate" {
   deploy_mode      = "KUBERNETES"
   namespace        = "harness-delegate-ng"
   manager_endpoint = var.manager_endpoint
-  delegate_image   = "us-docker.pkg.dev/gar-prod-setup/harness-public/harness/delegate:25.10.86901"
+  delegate_image   = "us-docker.pkg.dev/gar-prod-setup/harness-public/harness/delegate:26.03.88700"
   replicas         = 1
   upgrader_enabled = true
 

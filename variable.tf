@@ -6,7 +6,7 @@ variable "name" {
 
 variable "eks-version" {
   type        = string
-  default     = "1.32"
+  default     = "1.33"
   description = "EKS version to use"
 }
 
@@ -30,6 +30,6 @@ variable "manager_endpoint" {
 
 variable "orchestrator_tag" {
   type        = string
-  default     = "alpha-0.8.0"
+  default     = "0.8.2"
   description = "Tag for the orchestrator"
 }
