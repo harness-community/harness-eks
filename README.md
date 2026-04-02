@@ -8,6 +8,14 @@ TODO
 - autostopping v2
 - chaos?
 
+note: destroying this module isnt very clean at the moment, you should first do a:
+```
+tofu state rm helm_release.orchestrator
+tofu state rm kubernetes_namespace_v1.harness-delegate-ng
+tofu destroy -exclude="kubernetes_namespace_v1.harness-delegate-ng"
+```
+there also could be lingering ec2 instances if the orchestrator fails to cleanup properly
+
 ## whats in the box
 
 deploy a new vpc and eks cluster using aws modules bootrstrapped with a harness delegate and connectors

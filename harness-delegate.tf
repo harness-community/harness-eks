@@ -260,7 +260,7 @@ resource "aws_iam_role_policy" "delegate" {
 
 resource "aws_eks_pod_identity_association" "delegate" {
   cluster_name    = module.eks.cluster_name
-  namespace       = "harness-delegate-ng"
+  namespace       = var.delegate_namespace
   service_account = local.name
   role_arn        = aws_iam_role.delegate.arn
 }

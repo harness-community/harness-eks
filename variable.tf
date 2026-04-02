@@ -52,6 +52,12 @@ variable "delegate_namespace" {
   description = "Namespace for the delegate"
 }
 
+variable "byoc_version" {
+  type        = string
+  default     = "1.9.0"
+  description = "Version of the harness byoc control plane"
+}
+
 variable "byoc_namespace" {
   type        = string
   default     = "byoc"

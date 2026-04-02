@@ -82,3 +82,13 @@ module "eks" {
     "harness.io/${local.name}" = "owned"
   }
 }
+
+
+locals {
+  cluster_tolerations = [{
+    key      = "compute"
+    operator = "Equal"
+    value    = "dedicated"
+    effect   = "NoSchedule"
+  }]
+}

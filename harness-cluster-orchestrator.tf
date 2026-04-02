@@ -61,12 +61,11 @@ resource "helm_release" "orchestrator" {
       image = {
         tag = var.orchestrator_tag
       }
-      tolerations = [{
-        key      = "compute"
-        operator = "Equal"
-        value    = "dedicated"
-        effect   = "NoSchedule"
-      }]
+      tolerations = local.cluster_tolerations
+      distributor = {
+        enabled     = false
+        tolerations = local.cluster_tolerations
+      }
     }
   })]
 
