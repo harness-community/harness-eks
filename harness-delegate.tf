@@ -1,6 +1,14 @@
+locals {
+  log_group_path = "/harness/delegates"
+}
+
 # deploy a harness delegate into the cluster
+resource "random_id" "resource_trigger" {
+  byte_length = 2
+}
+
 resource "harness_platform_delegatetoken" "eks" {
-  name       = "eks-${local.name}-${formatdate("YYYY-MM-DD", timestamp())}"
+  name       = "eks-${local.name}-${formatdate("YYYY-MM-DD", timestamp())}-${random_id.resource_trigger.hex}"
   account_id = data.harness_platform_current_account.current.id
 
   lifecycle {
@@ -10,7 +18,7 @@ resource "harness_platform_delegatetoken" "eks" {
 
 resource "kubernetes_namespace_v1" "harness-delegate-ng" {
   metadata {
-    name = "harness-delegate-ng"
+    name = var.delegate_namespace
   }
 
   depends_on = [module.eks]
@@ -18,8 +26,18 @@ resource "kubernetes_namespace_v1" "harness-delegate-ng" {
 
 resource "kubernetes_manifest" "otel-collector" {
   manifest = yamldecode(templatefile("templates/otel-cloudwatch.yaml.tmpl", {
-    AWS_REGION    = data.aws_region.current.region
-    K8S_NAMESPACE = "harness-delegate-ng"
+    AWS_REGION     = data.aws_region.current.region
+    K8S_NAMESPACE  = var.delegate_namespace
+    LOG_GROUP_PATH = local.log_group_path
+    RETENTION_DAYS = 1
+  }))
+
+  depends_on = [kubernetes_namespace_v1.harness-delegate-ng]
+}
+
+resource "kubernetes_manifest" "delegate-logger" {
+  manifest = yamldecode(templatefile("templates/delegate-logger.yaml.tmpl", {
+    K8S_NAMESPACE = var.delegate_namespace
   }))
 
   depends_on = [kubernetes_namespace_v1.harness-delegate-ng]
@@ -33,9 +51,9 @@ module "delegate" {
   delegate_token   = harness_platform_delegatetoken.eks.value
   delegate_name    = local.name
   deploy_mode      = "KUBERNETES"
-  namespace        = "harness-delegate-ng"
+  namespace        = var.delegate_namespace
   manager_endpoint = var.manager_endpoint
-  delegate_image   = "us-docker.pkg.dev/gar-prod-setup/harness-public/harness/delegate:26.03.88700"
+  delegate_image   = var.delegate_image
   replicas         = 1
   upgrader_enabled = true
 
@@ -50,6 +68,17 @@ module "delegate" {
     custom_envs:
     - name: BLOCK_SHELL_TASK
       value: "true"
+    - name: HARNESS_LOG_STREAMING_STDOUT_ENABLED
+      value: "true"
+    - name: JAVA_OPTS
+      value: "-Dlogback.configurationFile=/opt/harness-delegate/logback/delegate-logger.xml"
+    - name: RUNNER_URL
+      value: "http://byoc-byoc-controlplane.${var.byoc_namespace}.svc.cluster.local:3000"
+    custom_mounts:
+    - name: delegate-logging
+      mountPath: /opt/harness-delegate/logback/
+    - name: shared-logs
+      mountPath: /opt/harness-delegate/logs
     custom_containers:
       - name: otel-collector
         image: otel/opentelemetry-collector-contrib:0.96.0
@@ -117,18 +146,29 @@ module "delegate" {
           - name: otel-config
             mountPath: /etc/otel
             readOnly: true
+          - name: shared-logs
+            mountPath: /opt/harness-delegate/logs
+            readOnly: true
 
     # Mount OTel config from ConfigMap
     custom_volumes:
+      - name: shared-logs
+        emptyDir: {}
       - name: otel-config
         configMap:
-          name: otel-collector-config
+          name: ${kubernetes_manifest.otel-collector.object.metadata.name}
           items:
             - key: otel-collector-config.yaml
               path: otel-collector-config.yaml
+      - name: delegate-logging
+        configMap:
+          name: ${kubernetes_manifest.delegate-logger.object.metadata.name}
+          items:
+            - key: delegate-logger.xml
+              path: delegate-logger.xml
 EOF
 
-  depends_on = [kubernetes_manifest.otel-collector]
+  depends_on = [kubernetes_manifest.otel-collector, kubernetes_manifest.delegate-logger]
 }
 
 # create the harness k8s connectors
@@ -180,7 +220,7 @@ resource "aws_iam_role" "delegate" {
 }
 
 resource "aws_iam_role_policy" "delegate" {
-  name = "${local.name}-s3-read-policy"
+  name = "${local.name}-logging"
   role = aws_iam_role.delegate.name
 
   policy = jsonencode({
@@ -206,12 +246,12 @@ resource "aws_iam_role_policy" "delegate" {
           "logs:CreateLogGroup",
           "logs:CreateLogStream",
           "logs:PutLogEvents",
+          "logs:PutRetentionPolicy",
           "logs:DescribeLogGroups",
           "logs:DescribeLogStreams"
         ]
         Resource = [
-          "arn:aws:logs:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:log-group:/metrics/harness/*",
-          "arn:aws:logs:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:log-group:/metrics/harness/*:*"
+          "arn:aws:logs:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:log-group:${local.log_group_path}*",
         ]
       }
     ]

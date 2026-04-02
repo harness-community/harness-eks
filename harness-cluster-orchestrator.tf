@@ -1,6 +1,6 @@
 # create the orchestrator components in aws and harness
 module "cluster-orchestrator" {
-  source = "git::https://github.com/harness-community/terraform-aws-harness-ccm-cluster-orchestrator.git?ref=tm/pod-identity"
+  source = "git::https://github.com/harness-community/terraform-aws-harness-ccm-cluster-orchestrator.git"
 
   cluster_name     = module.eks.cluster_name
   cluster_endpoint = module.eks.cluster_endpoint

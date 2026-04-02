@@ -57,10 +57,10 @@ module "eks" {
 
       ami_type = var.ami-type
 
-      instance_types = ["t4g.xlarge"]
+      instance_types = ["t3.xlarge"]
 
       min_size     = 1
-      max_size     = 1
+      max_size     = 3
       desired_size = 1
 
       taints = {
@@ -70,6 +70,8 @@ module "eks" {
           effect = "NO_SCHEDULE"
         }
       }
+
+      attach_cluster_primary_security_group = true
 
       tags = var.tags
     }
