@@ -77,6 +77,10 @@ module "eks" {
     }
   }
 
+  # disable control plane logs as its costing ~$60/mo
+  enabled_log_types           = []
+  create_cloudwatch_log_group = false
+
   # for ccm cluster orchestrator
   node_security_group_tags = {
     "harness.io/${local.name}" = "owned"
