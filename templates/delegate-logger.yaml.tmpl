@@ -1,0 +1,80 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: delegate-logger
+  namespace: ${K8S_NAMESPACE}
+  labels:
+    app.kubernetes.io/name: delegate-logger
+    app.kubernetes.io/component: logger
+data:
+  delegate-logger.xml: |
+    <?xml version="1.0" encoding="UTF-8"?>
+    <configuration>
+        <turboFilter class="io.harness.logging.ExpiringDuplicateMessageFilter">
+            <allowedRepetitions>0</allowedRepetitions>
+            <cacheSize>300</cacheSize>
+            <expireAfterWriteSeconds>3600</expireAfterWriteSeconds>
+            <includeMarkers>THROTTLED</includeMarkers>
+        </turboFilter>
+
+        <statusListener class="ch.qos.logback.core.status.NopStatusListener"/>
+
+        <conversionRule conversionWord="version" converterClass="io.harness.logging.VersionConverter"/>
+        <conversionRule conversionWord="process_id" converterClass="io.harness.logging.ProcessIdConverter"/>
+
+        <appender name="file" class="ch.qos.logback.core.rolling.RollingFileAppender">
+            <file>logs/delegate.log</file>
+            <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+                <!-- daily rollover -->
+                <fileNamePattern>logs/delegate.%d{yyyy-MM-dd}.%i.log</fileNamePattern>
+                <!-- or whenever the file size reaches 50MB -->
+                <maxFileSize>50MB</maxFileSize>
+                <!-- keep 10 days' worth of history capped at 1GB total size -->
+                <maxHistory>10</maxHistory>
+                <totalSizeCap>1GB</totalSizeCap>
+            </rollingPolicy>
+
+            <withJansi>true</withJansi>
+
+            <encoder>
+                <pattern>%date{ISO8601} [%version] %process_id [%thread] %-5level %logger - %msg %replace(%mdc){'(.+)', '[$1]'} %n</pattern>
+            </encoder>
+        </appender>
+
+        <appender name="stdout" class="ch.qos.logback.core.ConsoleAppender">
+            <withJansi>true</withJansi>
+            <encoder>
+                <pattern>%date{ISO8601} [%thread] %-5level %logger - %msg %replace(%mdc){'(.+)', '[$1]'} %n</pattern>
+            </encoder>
+        </appender>
+
+        <if condition='isNull("STACK_DRIVER_LOGGING_ENABLED") || property("STACK_DRIVER_LOGGING_ENABLED").equalsIgnoreCase("true")'>
+            <then>
+                <appender name="REST2" class="io.harness.logging.remote.RemoteStackdriverLogAppender">
+                    <threshold>TRACE</threshold>
+                    <managerHost>$${MANAGER_HOST_AND_PORT}</managerHost>
+                    <accountId>$${ACCOUNT_ID}</accountId>
+                    <clientCertPath>$${DELEGATE_CLIENT_CERTIFICATE_PATH:- }</clientCertPath>
+                    <clientCertKey>$${DELEGATE_CLIENT_CERTIFICATE_KEY_PATH:- }</clientCertKey>
+                    <trustAllCerts>$${TRUST_ALL_CERTIFICATES:-false}</trustAllCerts>
+                    <delegateToken>$${DELEGATE_TOKEN:-$${ACCOUNT_SECRET}}</delegateToken>
+                    <appName>delegate</appName>
+                </appender>
+            </then>
+        </if>
+
+        <logger name="software.wings" level="$${LOGGING_LEVEL:-INFO}"/>
+        <logger name="org.zeroturnaround" level="WARN"/>
+        <logger name="io.harness.pcf" level="$${LOGGING_LEVEL_PCF:-INFO}"/>
+        <logger name="io.harness.event.client.impl" level="$${LOGGING_LEVEL_EVENT_CLIENT:-INFO}"/>
+        <logger name="io.github.resilience4j" level="WARN"/>
+        <logger name="io.kubernetes.client.informer.cache.ReflectorRunnable" level="$${KUBE_WATCH_LEVEL:-OFF}"/>
+        <logger name="io.fabric8.kubernetes.client.Config" level="CRITICAL"/>
+        <logger name="org.yaml.snakeyaml.introspector" level="ERROR"/>
+        <root level="$${LOGGING_LEVEL:-INFO}">
+            <appender-ref ref="file"/>
+            <appender-ref ref="REST2"/>
+            <appender-ref ref="stdout"/>
+        </root>
+
+    </configuration>

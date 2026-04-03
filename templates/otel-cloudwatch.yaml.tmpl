@@ -1,0 +1,156 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: otel-collector-config
+  namespace: ${K8S_NAMESPACE}
+  labels:
+    app.kubernetes.io/name: otel-collector
+    app.kubernetes.io/component: metrics-collector
+data:
+  otel-collector-config.yaml: |
+    # ===========================================================================
+    # RECEIVERS - Scrape metrics from delegate and collect logs
+    # ===========================================================================
+    receivers:
+      prometheus:
+        config:
+          scrape_configs:
+            - job_name: 'harness-delegate'
+              scrape_interval: 30s
+              scrape_timeout: 10s
+              metrics_path: '/api/metrics'
+              static_configs:
+                - targets: ['localhost:3460']
+                  labels:
+                    service: 'harness-delegate'
+
+      filelog:
+        include:
+          - /opt/harness-delegate/logs/*.log
+        start_at: beginning
+        include_file_path: true
+        include_file_name: false
+        operators:
+          # Parse JSON logs if present
+          - type: json_parser
+            parse_from: body
+            parse_to: attributes
+            if: 'body matches "^\\{"'
+          # Extract timestamp from JSON
+          - type: time_parser
+            parse_from: attributes.timestamp
+            layout: '%Y-%m-%dT%H:%M:%S.%LZ'
+            if: 'attributes.timestamp != nil'
+          # Move message to body
+          - type: move
+            from: attributes.message
+            to: body
+            if: 'attributes.message != nil'
+
+    # ===========================================================================
+    # PROCESSORS - Transform and filter metrics
+    # ===========================================================================
+    processors:
+      batch:
+        timeout: 30s
+        send_batch_size: 100
+        send_batch_max_size: 200
+
+      memory_limiter:
+        check_interval: 5s
+        limit_mib: 128
+        spike_limit_mib: 32
+
+      resource:
+        attributes:
+          - key: deployment.environment
+            value: "$${env:ENVIRONMENT}"
+            action: upsert
+          - key: delegate.name
+            value: "$${env:DELEGATE_NAME}"
+            action: upsert
+          - key: k8s.namespace.name
+            value: "$${env:K8S_NAMESPACE}"
+            action: upsert
+          - key: k8s.pod.name
+            value: "$${env:K8S_POD_NAME}"
+            action: upsert
+          - key: harness.account.id
+            value: "$${env:HARNESS_ACCOUNT_ID}"
+            action: upsert
+
+      filter/harness:
+        metrics:
+          include:
+            match_type: regexp
+            metric_names:
+              - io_harness_custom_metric_.*
+              - jvm_.*
+              - process_.*
+
+    # ===========================================================================
+    # EXPORTERS - Send metrics to CloudWatch
+    # ===========================================================================
+    exporters:
+      debug:
+        verbosity: basic
+        sampling_initial: 5
+        sampling_thereafter: 200
+
+      awsemf:
+        region: ${AWS_REGION}
+        namespace: "Harness/Delegates"
+        log_group_name: "${LOG_GROUP_PATH}"
+        log_stream_name: "metrics/$${env:K8S_POD_NAME}"
+        log_retention: ${RETENTION_DAYS}
+        dimension_rollup_option: "NoDimensionRollup"
+        resource_to_telemetry_conversion:
+          enabled: true
+        metric_declarations:
+          - dimensions:
+              - ["delegate.name", "k8s.namespace.name"]
+              - ["delegate.name"]
+            metric_name_selectors:
+              - "io_harness_custom_metric_*"
+          - dimensions:
+              - ["delegate.name"]
+            metric_name_selectors:
+              - "jvm_*"
+              - "process_*"
+
+      awscloudwatchlogs:
+        region: ${AWS_REGION}
+        log_group_name: "${LOG_GROUP_PATH}"
+        log_stream_name: "logs/$${env:K8S_POD_NAME}"
+        log_retention: ${RETENTION_DAYS}
+
+    # ===========================================================================
+    # EXTENSIONS - Health check endpoint
+    # ===========================================================================
+    extensions:
+      health_check:
+        endpoint: 0.0.0.0:13133
+        path: "/health"
+
+    # ===========================================================================
+    # SERVICE - Wire everything together
+    # ===========================================================================
+    service:
+      extensions: [health_check]
+
+      pipelines:
+        metrics:
+          receivers: [prometheus]
+          processors: [memory_limiter, filter/harness, resource, batch]
+          exporters: [awsemf]
+
+        logs:
+          receivers: [filelog]
+          processors: [resource, batch]
+          exporters: [awscloudwatchlogs]
+
+      telemetry:
+        logs:
+          level: info
+        metrics:
+          address: 0.0.0.0:8888
